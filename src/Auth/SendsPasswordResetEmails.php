@@ -23,10 +23,9 @@ trait SendsPasswordResetEmails
 
         $response = app()->make(CognitoClient::class)->sendResetLink($request->email);
 
-        if ($response == Password::RESET_LINK_SENT) {
-            return redirect(route('cognito.password-reset'));
-        }
+        return $response == Password::RESET_LINK_SENT
+            ? $this->sendResetLinkResponse($request, $response)
+            : $this->sendResetLinkFailedResponse($request, $response);
 
-        return $this->sendResetLinkFailedResponse($request, $response);
     }
 }

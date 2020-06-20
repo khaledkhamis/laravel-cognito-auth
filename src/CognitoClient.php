@@ -68,7 +68,7 @@ class CognitoClient
     public function authenticate($email, $password)
     {
         try {
-            $response = $this->client->adminInitiateAuth([
+            return $this->client->adminInitiateAuth([
                 'AuthFlow' => 'ADMIN_NO_SRP_AUTH',
                 'AuthParameters' => [
                     'USERNAME' => $email,
@@ -78,16 +78,11 @@ class CognitoClient
                 'ClientId' => $this->clientId,
                 'UserPoolId' => $this->poolId,
             ]);
-        } catch (CognitoIdentityProviderException $exception) {
-            if ($exception->getAwsErrorCode() === self::RESET_REQUIRED ||
-                $exception->getAwsErrorCode() === self::USER_NOT_FOUND) {
-                return false;
-            }
-
-            throw $exception;
+        }catch (CognitoIdentityProviderException $e){
+            if($e->getAwsErrorCode() === self::RESET_REQUIRED)
+                $this->sendResetLink($email);
+            throw $e;
         }
-
-        return $response;
     }
 
     /**
@@ -250,6 +245,32 @@ class CognitoClient
         }
 
         return Password::PASSWORD_RESET;
+    }
+
+    /**
+     * Refresh the user's AWS Cognito tokens.
+     *
+     * @param string $refreshToken
+     * @return null|array
+     */
+    public function refreshCognitoTokens($refreshToken)
+    {
+        try {
+
+            $response = $this->client->adminInitiateAuth([
+                'AuthFlow' => 'REFRESH_TOKEN_AUTH',
+                'AuthParameters' => [
+                    'REFRESH_TOKEN' => $refreshToken,
+                ],
+                'ClientId' => env('AWS_COGNITO_CLIENT_ID'),
+                'UserPoolId' => env('AWS_COGNITO_USER_POOL_ID'),
+            ]);
+
+        } catch (CognitoIdentityProviderException $e) {
+            return null;
+        }
+
+        return $response['AuthenticationResult'];
     }
 
     /**
